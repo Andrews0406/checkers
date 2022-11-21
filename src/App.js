@@ -16,7 +16,7 @@ const {width} = Dimensions.get('screen');
 
 const App = () => {
   const isDarkMode = useColorScheme() === 'dark';
-  const [modalVisible, setModalVisible] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const [mode, setMode] = useState('');
   const clickFn = select_mode => {
