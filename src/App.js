@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {
   Dimensions,
+  Image,
   Modal,
   StyleSheet,
   Text,
@@ -11,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 //Config
 import {config, winTypes} from './config';
+import {media} from './assets/media';
 
 const {width} = Dimensions.get('screen');
 
@@ -19,16 +21,22 @@ const App = () => {
   const [modalVisible, setModalVisible] = useState(false);
 
   const [mode, setMode] = useState('');
-  const clickFn = select_mode => {
-    setMode(select_mode);
-  };
 
   const [player_data, setPlayer_data] = useState({});
+  const [player_cdata, setPlayer_cdata] = useState({});
   const [board, setBoard] = useState(createBoard());
   const [currentPlayer, setCurrentPlayer] = useState(config.colors.p1);
   const [dropping, setDropping] = useState(false);
   const [win, setWin] = useState(null);
   const [flashTimer, setFlashTimer] = useState(null);
+
+  const clickFn = select_mode => {
+    setBoard(createBoard());
+    setCurrentPlayer(config.colors.p1);
+    setWin(null);
+    setModalVisible(false);
+    setMode(select_mode);
+  };
 
   const getData = async () => {
     try {
@@ -47,6 +55,13 @@ const App = () => {
   useEffect(() => {
     getData();
   }, []);
+
+  useEffect(() => {
+    if (currentPlayer === config.colors.p2 && mode == 'computer') {
+      var randColumn = Math.floor(Math.random() * config.columns);
+      handleDrop(randColumn);
+    }
+  }, [currentPlayer]);
 
   const storeData = async player_data => {
     try {
@@ -131,20 +146,94 @@ const App = () => {
     });
   }
 
+  const SingleCell = ({data}) => {
+    var {i, color} = data;
+    if (i < 6) {
+      return (
+        <TouchableOpacity
+          style={{
+            height: width / config.columns,
+            width: width / config.columns,
+          }}
+          onPress={() => handleDrop(i)}>
+          <View
+            style={{
+              height: width / config.columns,
+              width: width / config.columns,
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              backgroundColor: '#AAAAAA',
+            }}>
+            <View
+              style={{
+                height: 40,
+                width: 40,
+                backgroundColor: color,
+                borderRadius: width / config.columns,
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      );
+    } else {
+      return (
+        <View
+          style={{
+            height: width / config.columns,
+            width: width / config.columns,
+          }}>
+          <View
+            style={{
+              height: width / config.columns,
+              width: width / config.columns,
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              backgroundColor: '#AAAAAA',
+            }}>
+            <View
+              style={{
+                height: 40,
+                width: 40,
+                backgroundColor: color,
+                borderRadius: width / config.columns,
+              }}
+            />
+          </View>
+        </View>
+      );
+    }
+  };
+
   useEffect(() => {
     if (!win) {
       return;
     }
 
     var win_player = win.winner === config.colors.p1 ? 'Player_1' : 'Player_2';
-    var cnt = player_data[win_player];
-    if (cnt) {
-      player_data[win_player] = cnt + 1;
+    if (currentPlayer === config.colors.p2 && mode == 'computer') {
+      var data = player_cdata;
+      var cnt = data[win_player];
+      if (cnt) {
+        data[win_player] = cnt + 1;
+      } else {
+        data[win_player] = 1;
+      }
+      storeData({player_data, player_cdata: data});
     } else {
-      player_data[win_player] = 1;
+      var data = player_data;
+      var cnt = data[win_player];
+      if (cnt) {
+        data[win_player] = cnt + 1;
+      } else {
+        data[win_player] = 1;
+      }
+      storeData({player_data: data, player_cdata});
     }
     setModalVisible(true);
-    storeData(player_data);
 
     function flashWinningCells(on) {
       const {empty} = config.colors;
@@ -296,9 +385,14 @@ const App = () => {
         ...styles.container,
         backgroundColor: isDarkMode ? 'black' : 'white',
       }}>
-      <Text style={{...styles.title, color: isDarkMode ? 'white' : 'black'}}>
-        Connect 3
-      </Text>
+      <View
+        style={{
+          marginTop: 30,
+        }}>
+        <Text style={{...styles.title, color: isDarkMode ? 'white' : 'black'}}>
+          Connect 3
+        </Text>
+      </View>
       {mode ? (
         <View style={styles.buttonContainer}>
           <View
@@ -309,48 +403,41 @@ const App = () => {
               height: width,
             }}>
             {board.map((color, i) => (
-              <TouchableOpacity
-                key={i}
-                style={{
-                  height: width / config.columns,
-                  width: width / config.columns,
-                }}
-                onPress={() => handleDrop(i)}>
-                <View
-                  style={{
-                    height: width / config.columns,
-                    width: width / config.columns,
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1,
-                    backgroundColor: '#AAAAAA',
-                  }}>
-                  <View
-                    style={{
-                      height: 40,
-                      width: 40,
-                      backgroundColor: color,
-                      borderRadius: width / config.columns,
-                    }}
-                  />
-                </View>
-              </TouchableOpacity>
+              <SingleCell key={i} data={{color, i}} />
             ))}
           </View>
           {!win && (
             <Text style={{color: currentPlayer, marginVertical: 20}}>
-              {currentPlayer === config.colors.p1 ? 'Player 1' : 'Player 2'}
+              {currentPlayer === config.colors.p1
+                ? 'Player 1'
+                : mode === 'player'
+                ? 'Player 2'
+                : 'Computer'}
             </Text>
           )}
+          <TouchableOpacity
+            onPress={() => clickFn('')}
+            style={{
+              ...styles.button,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-evenly',
+            }}>
+            <Image source={media.home_white} style={{width: 15, height: 15}} />
+            <Text style={styles.button_text}>Back to Home</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button} onPress={clickFn}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => clickFn('player')}>
             <Text style={styles.button_text}>Play 2 vs 2</Text>
           </TouchableOpacity>
           <Text style={styles.or_text}>or</Text>
-          <TouchableOpacity style={styles.button} onPress={clickFn}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => clickFn('computer')}>
             <Text style={styles.button_text}>Play vs Computer</Text>
           </TouchableOpacity>
         </View>
@@ -377,14 +464,14 @@ const App = () => {
               borderRadius: 5,
               padding: 20,
             }}>
-            {win ? (
+            {win && (
               <Text style={{color: win.winner, marginVertical: 20}}>
-                {win.winner === config.colors.p1 ? 'Player 1 ' : 'Player 2 '}
+                {win.winner === config.colors.p1
+                  ? 'Player 1 '
+                  : mode == 'player'
+                  ? 'Player 2 '
+                  : 'Computer'}
                 WON!
-              </Text>
-            ) : (
-              <Text style={{color: config.colors.p1, marginVertical: 20}}>
-                Player 1 WON!
               </Text>
             )}
             <View
@@ -411,7 +498,7 @@ const App = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <Text>Player 2</Text>
+                <Text>{mode === 'player' ? 'Player 2' : 'Computer'}</Text>
               </View>
               <View
                 style={{
@@ -421,7 +508,11 @@ const App = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <Text>{player_data.Player_1 ?? 0}</Text>
+                <Text>
+                  {mode === 'player'
+                    ? player_data.Player_1 ?? 0
+                    : player_cdata.Player_1 ?? 0}
+                </Text>
               </View>
               <View
                 style={{
@@ -431,7 +522,11 @@ const App = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <Text>{player_data.Player_2 ?? 0}</Text>
+                <Text>
+                  {mode === 'player'
+                    ? player_data.Player_2 ?? 0
+                    : player_cdata.Player_2 ?? 0}
+                </Text>
               </View>
             </View>
             <TouchableOpacity
@@ -459,7 +554,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '600',
-    marginTop: 30,
   },
   button: {
     width: 150,
